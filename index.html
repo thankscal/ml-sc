@@ -753,14 +753,17 @@
         return texts.join(' ');
     }
 
-    // ---------- 工作表偵測（排除 RO、ARC）----------
+    // ---------- 工作表偵測（排除 RO、ARC、主管班表）----------
     function detectScheduleSheets(workbook) {
         let results = [];
         let seenNames = new Set();
         for (let name of workbook.SheetNames) {
-            // 排除名稱為 RO、ARC（含大小寫/空格）
-            let upperName = name.trim().toUpperCase();
+            let trimmedName = name.trim();
+            let upperName = trimmedName.toUpperCase();
+            // 排除 RO、ARC
             if (upperName === 'RO' || upperName === 'ARC') continue;
+            // 排除「主管班表」，只保留「主管」
+            if (trimmedName === '主管班表') continue;
             if (seenNames.has(name)) continue;
             seenNames.add(name);
             let sheet = workbook.Sheets[name];
@@ -1150,4 +1153,4 @@
     });
 </script>
 </body>
-</html>
+    </html>
