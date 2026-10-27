@@ -753,10 +753,16 @@
         return texts.join(' ');
     }
 
-    // ---------- 工作表偵測 ----------
+    // ---------- 工作表偵測（排除 RO、ARC）----------
     function detectScheduleSheets(workbook) {
         let results = [];
+        let seenNames = new Set();
         for (let name of workbook.SheetNames) {
+            // 排除名稱為 RO、ARC（含大小寫/空格）
+            let upperName = name.trim().toUpperCase();
+            if (upperName === 'RO' || upperName === 'ARC') continue;
+            if (seenNames.has(name)) continue;
+            seenNames.add(name);
             let sheet = workbook.Sheets[name];
             let json;
             try {
@@ -770,7 +776,13 @@
                 if (!row) continue;
                 for (let c = 2; c < row.length; c++) {
                     let d = parseDateCell(row[c]);
-                    if (d) { foundDate = d; break; }
+                    if (d) {
+                        let y = d.getFullYear();
+                        if (y >= 2000 && y <= 2100) {
+                            foundDate = d;
+                            break;
+                        }
+                    }
                 }
                 if (foundDate) break;
             }
@@ -798,7 +810,15 @@
                 title: title
             });
         }
-        return results;
+        // 按名稱去重（保險）
+        let finalResults = [];
+        let seen = new Set();
+        for (let r of results) {
+            if (seen.has(r.name)) continue;
+            seen.add(r.name);
+            finalResults.push(r);
+        }
+        return finalResults;
     }
 
     // ---------- 解析單一工作表 ----------
@@ -984,12 +1004,6 @@
             let sp = localStorage.getItem(STORAGE_KEYS.SPECIAL_SHIFTS);
             if (sp) globalSpecialShifts = new Set(JSON.parse(sp));
             for (let s of globalSpecialShifts) if (!shiftColors[s]) shiftColors[s] = { ...SPECIAL_DEFAULT_COLOR };
-
-            // 嘗試從 scheduleData 推斷年月（用第一個有日期的班別）
-            if (scheduleData.length > 0) {
-                // 先以目前年月為預設，如果沒有資料則從資料推斷
-                // 由於不知年月，用目前畫面值（預設 2026/10）
-            }
             return true;
         } catch (e) { return null; }
     }
@@ -1008,7 +1022,7 @@
         allSheetCandidates.forEach((c, idx) => {
             let opt = document.createElement('option');
             opt.value = idx;
-            opt.textContent = `${c.name} (${c.year}/${c.month})`;
+            opt.textContent = c.name;   // 只顯示工作表名稱
             sel.appendChild(opt);
         });
         let cur = allSheetCandidates.findIndex(c => c.name === currentSheetName);
